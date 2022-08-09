@@ -15,7 +15,7 @@ WiFiManager wm; // global wm instance
 
 /* CONFIGURATION PARAMETERS */
 char teamId[4] = "145";
-char tz[4] = "-5";
+char tz[6] = "-5";
 char brightness[4] = "90";
 char serverAddress[81] = "http://soxmon.azurewebsites.net";
 
@@ -45,7 +45,7 @@ String getParam(String name){
 
 void saveParamCallback(){
   Serial.println("saving config");
-  DynamicJsonDocument json(1024);
+  DynamicJsonDocument json(2048);
   json["teamId"] = getParam("teamId");
   json["brightness"] = getParam("brightness");
   json["tz"] = getParam("tz");
@@ -86,13 +86,17 @@ void saveParamCallback(){
   Serial.print("Brightness: "); Serial.println(Brightness);
   dma_display->setBrightness8(Brightness); //0-255
 
+  Tz = strtol(tz, &ptr, 10);  
+
   //end save
 }
 
 boolean GetConfigFromFile()
 {
+    char* ptr;
+  
    //clean FS, for testing
-//  SPIFFS.format();
+  // SPIFFS.format();
 
   //read configuration from FS json
   Serial.println("mounting FS...");
@@ -123,7 +127,9 @@ boolean GetConfigFromFile()
           strcpy(teamId, json["teamId"]);
           if(json.containsKey("brightness")) strcpy(brightness, json["brightness"]);
           else (strncpy(brightness, "89",3));
-          strcpy(tz, json["tz"]);
+
+          strncpy(tz, json["tz"],5);
+          Tz = strtol(tz, &ptr, 10);  
           strcpy(serverAddress, json["serverAddress"]);
         } else {
           Serial.println("failed to load json config");
@@ -145,7 +151,10 @@ void SetupWifiManager()
 //    wm.resetSettings(); // wipe settings
 
   custom_teamId.setValue(teamId, 3);
-  custom_tz.setValue(tz, 3);
+  char buf[6];
+  sprintf(buf,"%d",Tz);
+  Serial.printf("Setting Tz: %s",buf);
+  custom_tz.setValue(buf, 5);
   custom_serverAddress.setValue(serverAddress, 80);
   Serial.print("Setting value for brightness: ");Serial.println(brightness);
   custom_brightness.setValue(brightness,3);
@@ -190,6 +199,7 @@ bool checkButton(){
         Serial.println("Button Held");
         Serial.println("Erasing Config, restarting");
         wm.resetSettings();
+        SPIFFS.format();
         ESP.restart();
       }
       

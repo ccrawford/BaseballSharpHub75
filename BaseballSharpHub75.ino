@@ -70,7 +70,7 @@ MatrixPanel_I2S_DMA *dma_display = nullptr;
 // #include <FastLED.h>
 
 int Team_ID = 0;
-int Tz = TZ;
+int Tz=0;
 int Brightness = 80;
 
 long Total_Api_Calls = 0;
@@ -102,8 +102,8 @@ void setup() {
   char* ptr;
   Team_ID = strtol(teamId, &ptr, 10);
   Brightness = max(min((int)strtol(brightness, &ptr, 10), 255), 0);
-  Serial.print("Cur Brightness: "); Serial.println(brightness);
-  Serial.print("Cur TZ: "); Serial.println(tz);
+  Serial.print("Cur Brightness: "); Serial.println(Brightness);
+  Serial.print("Cur Tz: "); Serial.println(Tz);
   Serial.print("Cur Server Address: "); Serial.println(serverAddress);
 
   /************** DISPLAY **************/
@@ -168,7 +168,23 @@ void setup() {
 
   ArduinoOTA.begin();
 
-  configTime(TZ, 0, "0.pool.ntp.org", "1.pool.ntp.org"); // enable NTP
+  time_t t;
+  configTime(Tz*3600, 0, "0.pool.ntp.org", "1.pool.ntp.org"); // enable NTP
+  while(time(&t) < 10)
+  {
+    Serial.print(".");
+    delay(200);
+  }
+
+  struct tm *lt;
+
+  time(&t);
+  lt = localtime(&t);
+
+  char tbuf[80];
+  strftime(tbuf, 80, "%a, %b %d   %I:%M", lt);
+  Serial.printf("Cur time: %s\n",tbuf);
+  
 
   checkButton();
 
@@ -227,9 +243,9 @@ void ShowPortalInfo()
   dma_display->setFont(&TomThumb);
   dma_display->setTextColor(dma_display->color444(6, 6, 15));
   dma_display->setCursor(0, 6);
-  dma_display->printf("Config Poral");
+  dma_display->printf("Config Portal");
   dma_display->setCursor(0, 12);
-  dma_display->printf("Open browser go to:");
+  dma_display->printf("Open browser to:");
   dma_display->setCursor(0, 20);
   dma_display->setTextColor(dma_display->color444(15, 2, 2));
   dma_display->printf(WiFi.localIP().toString().c_str());
@@ -240,6 +256,11 @@ void ShowPortalInfo()
 
 int ShowSoxLogo()
 {
+    dma_display->setFont(&TomThumb);
+    dma_display->fillScreen(0);
+    dma_display->setTextColor(dma_display->color444(15,15,15));
+    dma_display->setCursor(6,6);
+    dma_display->printf("top: [8 bot: ]9");
   return 0;
    static int prettyIndex = 0;
    prettyIndex = GetAllGameData("2022-08-02", prettyIndex, true);
@@ -404,7 +425,7 @@ void LogoTest(int index)
 
 
 
-int mode = 6;
+int mode = 2;
 
 
 
@@ -447,11 +468,15 @@ void loop()
 
   last_t = t;
   struct tm *lt = localtime(&t);
+
+  // FIX THIS, doesn't seem to be ticking over.
+  Serial.printf("today: %d",lt->tm_wday);
   if (lt->tm_wday != localDow) // Do daily updates
   {
+    Serial.println("Need the daily update.");
     localDow = lt->tm_wday;
     // Update time from time server
-    configTime(TZ, 0, "0.pool.ntp.org", "1.pool.ntp.org");
+    configTime(Tz*3600, 0, "0.pool.ntp.org", "1.pool.ntp.org");
     // Start showing tomorrow's games instead of today's. Force a refresh.
     nextUpdateTime = 0;
   }
@@ -499,7 +524,7 @@ void loop()
       Serial.print("In broken mode. Server address: ");
       Serial.println(serverAddress);
       if (retryCount++ > 10) {
-        mode = 1;
+        mode = 2;
         retryCount = 0;
       }
 
@@ -539,7 +564,9 @@ void loop()
       }
       else
       {
-        // if(ShowSoxLogo() == 0) mode++;
+        ShowSoxLogo();
+
+//        if(ShowSoxLogo() == 0) mode++;
         GetAllGameData(dtStr, prettyIndex, refreshData);
       }
       mode++;
@@ -559,12 +586,34 @@ void loop()
     case 9:
       prettyIndex = GetAllGameData(dtStr, prettyIndex, refreshData);
       mode = 1;
+      break;
+    case 100:
+      wm.setConfigPortalTimeout(120);
+      
+      wm.startWebPortal(); 
+      Portal_Active = true;
+      
+      Serial.println("Web portal started");
+
+      
+
+      prettyIndex = GetAllGameData(dtStr, prettyIndex, refreshData);
+      if (prettyIndex == 0) { 
+        Serial.println("Done with pp");
+        mode = 1;
+      }
+      else
+      {
+        Serial.print("PrettyIndex: "); Serial.println(prettyIndex);
+      }
+      break;
     default:
       mode = 1;
+     
 
   }
 
-  return;
+ // return;
 
 }
 
@@ -578,7 +627,9 @@ int GetDocFromServer(char* query)
 
   if (httpResponseCode != 200)
   {
-    showError("Couldn't Find Server");
+    char sbuf[30];
+    sprintf(sbuf, "Svr Error: %d",httpResponseCode);
+    showError(sbuf);
     if (httpResponseCode == -1)
     {
       Serial.print("The server isn't available or is misconfigured.");
@@ -611,8 +662,9 @@ int GetJsonFromServer(char* query, DynamicJsonDocument* docPtr)
   Total_Api_Calls++;
   if (httpResponseCode != 200)
   {
-    showError("Couldn't Find Server");
-    if (httpResponseCode == -1)
+    char sbuf[30];
+    sprintf(sbuf, "Svr Error: %d",httpResponseCode);
+    showError(sbuf);if (httpResponseCode == -1)
     {
       Serial.print("The server isn't available or is misconfigured.");
       mode = 0;
@@ -790,6 +842,11 @@ bool DisplayPrettyGame(JsonVariant value)
     // Show game start time.
     char tbuf[6];
     strftime(tbuf, sizeof(tbuf), "%I:%M", localtime(&gameTime));
+    Serial.printf("GameTime: %d",gameTime);
+    struct tm * timeinfo;
+    timeinfo = (localtime(&gameTime));
+    Serial.printf("Timeinfo: %s",asctime(timeinfo));
+    Serial.printf("LocalTime: %s",tbuf);
     dma_display->setCursor(34,21);
     dma_display->setFont();
     if (!strncmp(tbuf, "0", 1)) dma_display->printf(tbuf + 1);
@@ -811,6 +868,14 @@ bool DisplayPrettyGame(JsonVariant value)
   {
     dma_display->setCursor(34,21);
     dma_display->printf("Final");
+    return false;
+  }
+  if(!strncmp(gameStatus,"D",1))
+  {
+    dma_display->setCursor(34,21);
+    dma_display->setFont(&TomThumb);
+
+    dma_display->printf("Delayed");
     return false;
   }
 
@@ -866,14 +931,14 @@ int GetAllGameData(char * dateString, int index, bool needRefresh)
 
   JsonArray arr = doc.as<JsonArray>();
 
-  if (arr.size() == 0 || arr.size() < index)
+  if (arr.size() == 0 || arr.size() <= index)
   {
     return 0;
   }
   
   JsonVariant value = arr[index];
   DisplayPrettyGame(value);
-  if(index>=arr.size()) return 0;
+  if(index>= (arr.size()-1)) return 0;
   else return index + 1;
 }
 
@@ -1004,12 +1069,17 @@ int ShowLeagueGames(char * dateString, int offset, bool needRefresh)
       if (value["awayTeamRuns"] > 9 || value["homeTeamRuns"] > 9) shiftInning = 1;
     }
 
-
+    // If game is delayed, show Del for inning
+    if(!strncmp(gameStatus,"D",1))
+    {
+      dma_display->setCursor(13 + (col * colOffset), (row * 6) + 3);
+      dma_display->printf("Del");
+    }
     // Show game time if game not started.
-    if (value["homeTeamRuns"] == nullptr || !strncmp(inning, "n", 1) || !strncmp(inning, "d", 1))
+    else if (value["homeTeamRuns"] == nullptr || !strncmp(inning, "n", 1) || !strncmp(inning, "d", 1))
     {
       if (!strncmp(inning, "d", 1)) dma_display->setTextColor(dma_display->color444(15, 15, 0));
-      else if (!strncmp(inning, "n", 1)) dma_display->setTextColor(dma_display->color444(2, 2, 15));
+      else if (!strncmp(inning, "n", 1)) dma_display->setTextColor(dma_display->color444(15, 8, 4));
 
       dma_display->setCursor(13 + (col * colOffset), (row * 6) + 3);
       char tbuf[6];
@@ -1192,9 +1262,9 @@ void DisplayWildcardStandings(JsonDocument& doc, int index)
 
   int row = 0;
 
-  Serial.println("show league");
-  // League name in upper right.
-  dma_display->setTextColor(dma_display->color444(9, 3, 15));
+  // League name in upper right. American League blue, National League red
+  if(!strncmp(dispName,"AL",2)) dma_display->setTextColor(dma_display->color444(13,0,0));
+  else dma_display->setTextColor(dma_display->color444(4,4,13));
   dma_display->setCursor(47, 6);
   dma_display->printf("%s", dispName);
   dma_display->setCursor(47, 12);
@@ -1207,9 +1277,6 @@ void DisplayWildcardStandings(JsonDocument& doc, int index)
     row++; //row number is 1 for first row on screen, not 0.
     if (row > 5) continue; //Only room for five rows.
 
-    Serial.println("show team");
-
-
     // Highlight team of interest
     if (team["teamId"] == Team_ID) dma_display->setTextColor(dma_display->color444(14, 0, 0));
     else dma_display->setTextColor(dma_display->color444(15, 15, 12));
@@ -1217,12 +1284,10 @@ void DisplayWildcardStandings(JsonDocument& doc, int index)
     dma_display->setCursor(1, row * 6);
     dma_display->printf(team["wildCardRank"].as<char*>());
     dma_display->printf(".");
-    Serial.println("show name");
 
     dma_display->setCursor(9, row * 6);
     dma_display->printf(team["nameAbbr"].as<char*>());
     dma_display->setCursor(23, row * 6);
-    Serial.println("show games back");
 
     dma_display->printf(team["wildCardGamesBack"].as<char*>());
 
@@ -1351,7 +1416,6 @@ bool ShowLiveBoxScore(bool needRefresh)
 }
 
 bool DisplayBoxScore(const JsonDocument& doc)
-//bool ShowFullScreenBoxScore(int gamePk) //Return true if we should hold rotation.
 {
   bool retVal = false;
   char buf[80];
@@ -1373,6 +1437,7 @@ bool DisplayBoxScore(const JsonDocument& doc)
   bool manOnSecond = doc["manOnSecond"];
   bool manOnThird = doc["manOnThird"];
 
+  int outs  = doc["outs"];
   int awayR = doc["awayteamRunsGame"];
   int homeR = doc["hometeamRunsGame"];
   int awayH = doc["awayteamHitsGame"];
@@ -1382,6 +1447,7 @@ bool DisplayBoxScore(const JsonDocument& doc)
 
   dma_display->setTextWrap(false);
   sprintf(buf, "%s @ %s %s", awayA, homeA, statusB);
+
 
   dma_display->fillScreen(0);
 
@@ -1393,14 +1459,14 @@ bool DisplayBoxScore(const JsonDocument& doc)
   dma_display->printf(buf);
 
   dma_display->setCursor(0, 16);
-  if (!strncmp(gameStatus, "I", 1) && !strncmp(inningHalf, "T", 1)) dma_display->setTextColor(dma_display->color444(14, 15, 12));
+  if (!strncmp(gameStatus, "I", 1) && !strncmp(inningHalf, "T", 1)) dma_display->setTextColor(dma_display->color444(12, 13, 15));
   else dma_display->setTextColor(dma_display->color444(15, 14, 12));
   dma_display->printf(awayA);
   dma_display->setCursor(14, 16);
   dma_display->printf(awayL);
 
   dma_display->setCursor(0, 22);
-  if (!strncmp(gameStatus, "I", 1) && !strncmp(inningHalf, "B", 1)) dma_display->setTextColor(dma_display->color444(14, 15, 12));
+  if (!strncmp(gameStatus, "I", 1) && !strncmp(inningHalf, "B", 1)) dma_display->setTextColor(dma_display->color444(12, 13, 15));
   else dma_display->setTextColor(dma_display->color444(15, 14, 12));
   dma_display->printf(homeA);
 
@@ -1408,10 +1474,23 @@ bool DisplayBoxScore(const JsonDocument& doc)
   dma_display->printf(homeL);
 
 
+    // Display outs as squares if game in progress
+  if (!strncmp(gameStatus, "I", 1))
+  {
+    for(int i=3; i>0; i--)
+    {
+      dma_display->fillRect(530+(i*-3),3,2,2,(outs>=i)?dma_display->color444(15,15,0):dma_display->color444(3,3,3));
+    }
+  }
+
+  
   // Only print runs, hits, errors if the game is in progress or done. This is getting sloppy.
 
   if (!strncmp(gameStatus, "I", 1) || !strncmp(gameStatus, "F", 1) || !strncmp(gameStatus, "O", 1))
   {
+
+
+    
     char ibuf[3];
     dma_display->setCursor((awayR > 9) ? 49 : 53, 16);
     dma_display->setTextColor(dma_display->color444(15, 0, 0));
