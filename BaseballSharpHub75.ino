@@ -79,12 +79,15 @@ long Total_Api_Calls = 0;
 #include "SoxLogo.h"
 #define SERVER_IP "http://soxmon.azurewebsites.net"
 
+const char compile_date[] = __DATE__ " " __TIME__;
 
 void setup() {
 
   Serial.begin(115200);
   Serial.println("BaseballSharpHub75.ino. July 2022. C.Crawford");
-
+  Serial.println(compile_date);
+  Serial.println(__FILE__);
+  
   pinMode(TRIGGER_PIN, INPUT_PULLUP);
 
 
@@ -114,7 +117,12 @@ void setup() {
   dma_display->begin();
   dma_display->setBrightness8(Brightness); //0-255
   dma_display->clearScreen();
-
+  dma_display->setFont(&TomThumb);
+  dma_display->setCursor(1, 6);
+  dma_display->printf("Welcome.");
+  dma_display->setCursor(1, 12);
+  dma_display->printf("ver:%s",__DATE__);
+  
 
   SetupWifiManager();
 
@@ -130,9 +138,12 @@ void setup() {
     delay(1000);
   }
 
-  dma_display->clearScreen();
+  // dma_display->clearScreen();
+  
 
   Serial.println("Connected!");
+  dma_display->setCursor(1, 18);
+  dma_display->printf(WiFi.localIP().toString().c_str());
 
   //OTA SETUP
 
@@ -184,6 +195,9 @@ void setup() {
   char tbuf[80];
   strftime(tbuf, 80, "%a, %b %d   %I:%M", lt);
   Serial.printf("Cur time: %s\n",tbuf);
+  
+  dma_display->setCursor(1, 24);
+  dma_display->printf(tbuf);
   
 
   checkButton();
