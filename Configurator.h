@@ -22,7 +22,6 @@ char serverAddress[81] = "http://soxmon.azurewebsites.net";
 void ShowPortalInfo();
 
 
-WiFiManagerParameter custom_teamId("teamId", "three digit team id", teamId, 3);
 WiFiManagerParameter custom_brightness("brightness", "Brightness", brightness, 3);
 WiFiManagerParameter custom_tz("tz", "Time Zone", tz, 3);
 WiFiManagerParameter custom_serverAddress("serverAddress", "Server Address", serverAddress, 80);
@@ -150,7 +149,6 @@ void SetupWifiManager()
 {
 //    wm.resetSettings(); // wipe settings
 
-  custom_teamId.setValue(teamId, 3);
   char buf[6];
   sprintf(buf,"%d",Tz);
   Serial.printf("Setting Tz: %s",buf);
@@ -159,7 +157,6 @@ void SetupWifiManager()
   Serial.print("Setting value for brightness: ");Serial.println(brightness);
   custom_brightness.setValue(brightness,3);
   
- // wm.addParameter(&custom_teamId);
   wm.addParameter(&custom_tz);
   wm.addParameter(&custom_serverAddress);
   wm.addParameter(&custom_brightness);
@@ -170,7 +167,7 @@ void SetupWifiManager()
   std::vector<const char *> menu = {"wifi","info","param","sep","erase","restart","exit"};
   wm.setMenu(menu);
 
-  const char* custom_select = "<br/><label for='teams'>Team</label><select name='teamId' id='teams'><optgroup label='American League'><option value='110'>Baltimore Orioles</option><option value='111'>Boston Red Sox</option><option value='145'>Chicago White Sox</option><option value='114'>Cleveland Guardians</option><option value='116'>Detroit Tigers</option><option value='117'>Houston Astros</option><option value='118'>Kansas City Royals</option><option value='108'>Los Angeles Angels</option><option value='142'>Minnesota Twins</option><option value='147'>New York Yankees</option><option value='133'>Oakland Athletics</option><option value='136'>Seattle Mariners</option><option value='139'>Tampa Bay Rays</option><option value='140'>Texas Rangers</option><option value='141'>Toronto Blue Jays</option></optgroup><optgroup label='National League'><option value='109'>Arizona Diamondbacks</option><option value='144'>Atlanta Braves</option><option value='112'>Chicago Cubs</option><option value='113'>Cincinnati Reds</option><option value='115'>Colorado Rockies</option><option value='119'>Los Angeles Dodgers</option><option value='146'>Miami Marlins</option><option value='158'>Milwaukee Brewers</option><option value='121'>New York Mets</option><option value='143'>Philadelphia Phillies</option><option value='134'>Pittsburgh Pirates</option><option value='135'>San Diego Padres</option><option value='137'>San Francisco Giants</option><option value='138'>St. Louis Cardinals</option><option value='120'>Washington Nationals</option></optgroup></select>";
+  const char* custom_select = "<br/><label for='teams'>Team</label><select name='teamId' id='teams' multiple><optgroup label='American League'><option value='110'>Baltimore Orioles</option><option value='111'>Boston Red Sox</option><option value='145'>Chicago White Sox</option><option value='114'>Cleveland Guardians</option><option value='116'>Detroit Tigers</option><option value='117'>Houston Astros</option><option value='118'>Kansas City Royals</option><option value='108'>Los Angeles Angels</option><option value='142'>Minnesota Twins</option><option value='147'>New York Yankees</option><option value='133'>Oakland Athletics</option><option value='136'>Seattle Mariners</option><option value='139'>Tampa Bay Rays</option><option value='140'>Texas Rangers</option><option value='141'>Toronto Blue Jays</option></optgroup><optgroup label='National League'><option value='109'>Arizona Diamondbacks</option><option value='144'>Atlanta Braves</option><option value='112'>Chicago Cubs</option><option value='113'>Cincinnati Reds</option><option value='115'>Colorado Rockies</option><option value='119'>Los Angeles Dodgers</option><option value='146'>Miami Marlins</option><option value='158'>Milwaukee Brewers</option><option value='121'>New York Mets</option><option value='143'>Philadelphia Phillies</option><option value='134'>Pittsburgh Pirates</option><option value='135'>San Diego Padres</option><option value='137'>San Francisco Giants</option><option value='138'>St. Louis Cardinals</option><option value='120'>Washington Nationals</option></optgroup></select>";
   new (&custom_field) WiFiManagerParameter(custom_select); // custom html input
   wm.addParameter(&custom_field);
   

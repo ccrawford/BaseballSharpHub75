@@ -84,7 +84,7 @@ const char compile_date[] = __DATE__ " " __TIME__;
 void setup() {
 
   Serial.begin(115200);
-  Serial.println("BaseballSharpHub75.ino. July 2022. C.Crawford");
+  Serial.println("BaseballSharpHub75.ino. Aug 2022. C.Crawford");
   Serial.println(compile_date);
   Serial.println(__FILE__);
   
@@ -129,7 +129,7 @@ void setup() {
   // Block if we can't get a WiFi connection. Will remove later.
   wm.setConfigPortalBlocking(true);
 
-  wm.setConfigPortalTimeout(5);
+  wm.setConfigPortalTimeout(10);
   while (!wm.autoConnect("ScoreboardSetup"))
   {
     showSetupMessage();
@@ -181,9 +181,11 @@ void setup() {
 
   time_t t;
   configTime(Tz*3600, 0, "0.pool.ntp.org", "1.pool.ntp.org"); // enable NTP
-  while(time(&t) < 10)
+  while(time(&t) < 200)
   {
     Serial.print(".");
+    dma_display->setCursor(1, 18);
+    dma_display->printf(".");
     delay(200);
   }
 
@@ -448,6 +450,7 @@ int mode = 2;
 bool liveGameMode = false;
 bool leagueIdle = false;  // League idle is when no games are in progress.
 time_t nextGame;          // Time when league goes off idle.
+time_t portalStartTime = 0;
 
 
 void loop()
@@ -575,12 +578,24 @@ void loop()
       if (Portal_Active)
       {
         ShowPortalInfo();
+        // Increment counter. Turn off portal after a while.
+        if (portalStartTime == 0)
+        {
+          portalStartTime = time(NULL);
+        }
+        if (time(NULL) - portalStartTime > 120)
+        {
+          portalStartTime = 0;
+          wm.stopWebPortal();
+          Serial.println("Stopping web portal. It's been running too long.");
+        }
+        
       }
       else
       {
-        ShowSoxLogo();
+//        ShowSoxLogo();
 
-//        if(ShowSoxLogo() == 0) mode++;
+//I        if(ShowSoxLogo() == 0) mode++;
         GetAllGameData(dtStr, prettyIndex, refreshData);
       }
       mode++;
@@ -1493,7 +1508,7 @@ bool DisplayBoxScore(const JsonDocument& doc)
   {
     for(int i=3; i>0; i--)
     {
-      dma_display->fillRect(530+(i*-3),3,2,2,(outs>=i)?dma_display->color444(15,15,0):dma_display->color444(3,3,3));
+      dma_display->fillRect(53+(i*-3),3,2,2,(outs>=i)?dma_display->color444(15,15,0):dma_display->color444(3,3,3));
     }
   }
 
